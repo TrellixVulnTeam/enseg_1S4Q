@@ -1,0 +1,7 @@
+*.cpython
+*.pyc
+enseg/.min/*
+work_dirs/*
+data/*
+.vscode/*
+graph/*
