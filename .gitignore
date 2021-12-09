@@ -6,3 +6,4 @@ data/*
 .vscode/*
 graph/*
 pretrain/*
+tests/store/*
