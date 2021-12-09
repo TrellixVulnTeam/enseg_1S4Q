@@ -3,7 +3,7 @@ import argparse
 
 from mmcv import Config, DictAction
 
-from mmseg.apis import init_segmentor
+from enseg.apis import init_segmentor
 
 
 def parse_args():

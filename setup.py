@@ -152,7 +152,7 @@ if __name__ == "__main__":
         name="enseg",
         version=get_version(),
         description="Enhance and Segmentation Based mmcv",
-        author="MMSegmentation Contributors",
+        author="ensegmentation Contributors",
         author_email="zhixiangwei@mail.ustc.edu.cn",
         keywords="computer vision, semantic segmentation",
         url="https://github.com/w1oves/enseg.git",

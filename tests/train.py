@@ -79,10 +79,10 @@ def main():
     dataloaders = [dataloader]
     # make checkpoint config
     if cfg.checkpoint_config is not None:
-        # save mmseg version, config file content and class names in
+        # save enseg version, config file content and class names in
         # checkpoints as meta data
         cfg.checkpoint_config.meta = dict(
-            mmseg_version=f"{__version__}+{get_git_hash()[:7]}",
+            enseg_version=f"{__version__}+{get_git_hash()[:7]}",
             config=cfg.pretty_text,
             CLASSES=dataset.CLASSES,
             PALETTE=dataset.PALETTE,

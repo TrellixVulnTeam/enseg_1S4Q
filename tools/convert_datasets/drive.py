@@ -11,7 +11,7 @@ import mmcv
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert DRIVE dataset to mmsegmentation format')
+        description='Convert DRIVE dataset to ensegmentation format')
     parser.add_argument(
         'training_path', help='the training part of DRIVE dataset')
     parser.add_argument(

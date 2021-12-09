@@ -35,14 +35,14 @@ def main():
     """ Parsing configuration """
     args = parse_args()
     if args.config.find('DEBUG')!=-1:
-        args.config = "/home/wzx/weizhixiang/exp_enseg/configs/multilight/deeplabv3plus_r50-d8_h256w512_80k_nightcity.py"
+        args.config = "/home/wzx/weizhixiang/ensegment/configs/vit/upernet_deit-b16_512x512_80k_nightcity.py"
     cfg = Config.fromfile(args.config)
     if args.debug:
         cfg.evaluation["interval"] = 100
         cfg.total_iters = 1000
         cfg.log_config.interval = 5
         cfg.log_config.hooks[0]["interval"] = 5
-        cfg.log_config.hooks.pop(-1)
+        # cfg.log_config.hooks.pop(-1)
         args.gpu_ids = get_available_gpu([0])
         # cfg.data.samples_per_gpu = 2
         # cfg.data.workers_per_gpu = 1
@@ -134,10 +134,10 @@ def main():
     dataloaders = [dataloader]
     # make checkpoint config
     if cfg.checkpoint_config is not None:
-        # save mmseg version, config file content and class names in
+        # save enseg version, config file content and class names in
         # checkpoints as meta data
         cfg.checkpoint_config.meta = dict(
-            mmseg_version=f"{__version__}+{get_git_hash()[:7]}",
+            enseg_version=f"{__version__}+{get_git_hash()[:7]}",
             config=cfg.pretty_text,
             CLASSES=dataset.CLASSES,
             PALETTE=dataset.PALETTE,

@@ -13,7 +13,7 @@ TRAINING_LEN = 60
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert CHASE_DB1 dataset to mmsegmentation format')
+        description='Convert CHASE_DB1 dataset to ensegmentation format')
     parser.add_argument('dataset_path', help='path of CHASEDB1.zip')
     parser.add_argument('--tmp_dir', help='path of the temporary directory')
     parser.add_argument('-o', '--out_dir', help='output path')

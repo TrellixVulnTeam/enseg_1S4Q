@@ -21,7 +21,7 @@ def un_gz(src, dst):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert STARE dataset to mmsegmentation format')
+        description='Convert STARE dataset to ensegmentation format')
     parser.add_argument('image_path', help='the path of stare-images.tar')
     parser.add_argument('labels_ah', help='the path of labels-ah.tar')
     parser.add_argument('labels_vk', help='the path of labels-vk.tar')

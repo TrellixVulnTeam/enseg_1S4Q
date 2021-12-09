@@ -18,7 +18,7 @@ from enseg.models.builder import build_segmentor
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="mmseg test (and eval) a model")
+    parser = argparse.ArgumentParser(description="enseg test (and eval) a model")
     parser.add_argument("config", help="test config file path")
     parser.add_argument("checkpoint", help="checkpoint file")
     parser.add_argument(
@@ -223,7 +223,7 @@ def main():
     if rank == 0:
         if args.out:
             warnings.warn(
-                "The behavior of ``args.out`` has been changed since MMSeg "
+                "The behavior of ``args.out`` has been changed since enseg "
                 "v0.16, the pickled outputs could be seg map as type of "
                 "np.array, pre-eval results or file paths for "
                 "``dataset.format_results()``."

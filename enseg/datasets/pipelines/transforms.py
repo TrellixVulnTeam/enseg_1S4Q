@@ -539,7 +539,9 @@ class CLAHE(object):
         Returns:
             dict: Processed results.
         """
-
+        # import torch
+        
+        # results['origin']=torch.tensor(mmcv.rgb2bgr(results['img'].copy())).permute(2,0,1)
         for i in range(results['img'].shape[2]):
             results['img'][:, :, i] = mmcv.clahe(
                 np.array(results['img'][:, :, i], dtype=np.uint8),

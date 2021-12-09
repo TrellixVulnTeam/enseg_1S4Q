@@ -30,6 +30,7 @@ class BaseNetwork(EncoderDecoder):
         aux=None,
         gen=None,
         dis=None,
+        neck=None,
         gan_loss=None,
         pretrained=None,
         train_flow=None,
@@ -38,7 +39,7 @@ class BaseNetwork(EncoderDecoder):
         init_cfg=None,
     ):
         super(BaseNetwork, self).__init__(
-            backbone, seg, aux, pretrained, train_cfg, test_cfg, init_cfg,
+            backbone, seg, aux, neck, pretrained, train_cfg, test_cfg, init_cfg,
         )
         self.train_flow = self.get_train_flow(train_flow)
         self.fp16_enabled = False

@@ -1,7 +1,8 @@
 *.cpython
 *.pyc
-enseg/.min/*
+enseg/.mim/*
 work_dirs/*
 data/*
 .vscode/*
 graph/*
+pretrain/*

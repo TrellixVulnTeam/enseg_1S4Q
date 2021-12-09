@@ -23,6 +23,7 @@ class EnsegV1(BaseNetwork):
         aux=None,
         gen=None,
         dis=None,
+        neck=None,
         gan_loss=None,
         pretrained=None,
         train_flow=None,
@@ -48,6 +49,8 @@ class EnsegV1(BaseNetwork):
 
     def forward_backbone_train(self, img):
         x = self.backbone(img)
+        if self.with_neck:
+            x = self.neck(x)
         self.featureA = x
         return x
 

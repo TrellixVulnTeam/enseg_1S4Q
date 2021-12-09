@@ -203,7 +203,7 @@ def convert_to_trainID(maskpath, out_mask_dir, is_train):
 def parse_args():
     parser = argparse.ArgumentParser(
         description=\
-        'Convert COCO Stuff 164k annotations to mmsegmentation format')  # noqa
+        'Convert COCO Stuff 164k annotations to ensegmentation format')  # noqa
     parser.add_argument('coco_path', help='coco stuff path')
     parser.add_argument('-o', '--out_dir', help='output path')
     parser.add_argument(

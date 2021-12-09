@@ -6,6 +6,7 @@ from .discriminators import *
 from .networks import *
 from .segmentors import *
 from .ganlosses import *
+from .necks import *
 from .builder import (
     BACKBONES,
     DECODE_SEG,
@@ -20,6 +21,7 @@ from .builder import (
     build_network,
     build_discriminator,
     build_ganloss,
+    build_neck,
 )
 
 

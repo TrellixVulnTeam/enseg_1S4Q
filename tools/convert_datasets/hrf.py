@@ -13,7 +13,7 @@ TRAINING_LEN = 5
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Convert HRF dataset to mmsegmentation format')
+        description='Convert HRF dataset to ensegmentation format')
     parser.add_argument('healthy_path', help='the path of healthy.zip')
     parser.add_argument(
         'healthy_manualsegm_path', help='the path of healthy_manualsegm.zip')

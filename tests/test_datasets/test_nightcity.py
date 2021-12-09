@@ -20,9 +20,12 @@ from enseg.datasets import build_dataset
 
 def main():
     args = parse_args()
-    args.config = "configs/demo/demo1.py"
+    args.config = "/home/wzx/weizhixiang/exp_enseg/configs/seg/deeplabv3plus_r50-d8_h256w512_80k_nightcity+clahe.py"
     cfg = Config.fromfile(args.config)
-    cfg.work_dir = osp.join("./work_dirs", osp.splitext(osp.basename(args.config))[0])
+    cfg.work_dir = osp.join(
+        "/home/wzx/weizhixiang/exp_enseg/tests/store",
+        'MCIE-1',
+    )
     if args.load_from is not None:
         cfg.load_from = args.load_from
     if args.resume_from is not None:
@@ -60,9 +63,15 @@ def main():
 
     for idx, data in enumerate(datasets[0]):
         colormap = segmap2colormap(data["gt_semantic_seg"].data)
-        img = de_normalize(data["img"].data, **data["img_metas"].data["img_norm_cfg"])
-        grid = make_grid([img, colormap], nrow=2, normalize=True, value_range=(0, 255))
+        img = de_normalize(data["img"].data, data["img_metas"].data["img_norm_cfg"])
+        grid = make_grid(
+            [img, data["origin"].data], nrow=2, normalize=True, value_range=(0, 255)
+        )
         board.add_image("train", grid, global_step=idx)
+        print(idx)
+        if idx >= 50:
+            break
+    board.close()
 
 
 if __name__ == "__main__":
