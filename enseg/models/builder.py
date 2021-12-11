@@ -14,11 +14,16 @@ DECODE_GEN = MODELS
 DISCRIMINATORS = MODELS
 NETWORKS = MODELS
 GANLOSSES = MODELS
+TRANSLATOR = MODELS
 
 # not using
 NECKS = MODELS
 LOSSES = MODELS
 SEGMENTORS = MODELS
+
+
+def build_translator(cfg):
+    return TRANSLATOR.build(cfg)
 
 
 def build_backbone(cfg):

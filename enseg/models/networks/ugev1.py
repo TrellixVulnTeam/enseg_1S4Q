@@ -1,6 +1,5 @@
-from collections import namedtuple
+from typing import Dict
 
-import torch
 import torch.nn as nn
 from enseg.core import add_prefix
 from enseg.models import builder
@@ -8,150 +7,117 @@ from mmcv.runner import build_optimizer
 from mmcv.runner.fp16_utils import auto_fp16
 from torch.nn.parallel.distributed import _find_tensors
 
-from ..builder import NETWORKS
-from .base_network import BaseNetwork
-
-"""
-NOTE
-Combination of segmentation network and gan
-
-extractor----->night segmentor
-        ------>generator------->discriminator
-"""
+from ..builder import NETWORKS, TRANSLATOR, build_loss
+from ..segmentors import EncoderDecoder
 
 
 @NETWORKS.register_module()
-class EnsegV4(BaseNetwork):
+class UGEV1(EncoderDecoder):
     def __init__(
         self,
-        backbone,
         seg,
-        aux=None,
-        gen=None,
-        dis=None,
-        gan_loss=None,
+        gen,
+        rec,
+        loss_regular: str,
+        loss_rec: dict,
         pretrained=None,
-        train_flow=None,
         train_cfg=None,
         test_cfg=None,
         init_cfg=None,
     ):
+        assert isinstance(seg, dict)
         super().__init__(
-            backbone,
-            seg,
-            aux=aux,
-            gen=gen,
-            dis=dis,
-            gan_loss=gan_loss,
-            pretrained=pretrained,
-            train_flow=train_flow,
-            train_cfg=train_cfg,
-            test_cfg=test_cfg,
-            init_cfg=init_cfg,
+            seg["encode"],
+            seg["decode"],
+            seg.get("aux", None),
+            seg.get("neck", None),
+            pretrained,
+            train_cfg,
+            test_cfg,
+            init_cfg,
         )
-        self.mce = nn.MSELoss()
-        self.L1 = nn.L1Loss()
-        backbone_B = builder.build_backbone(backbone)
-        self.backbones = dict(A=self.backbone, B=backbone_B)
-        self.backbone_B = backbone_B
-        self.feature = {}
-        self.all_feature = {}
+        self.gen = builder.build_translator(gen)
+        if rec is not None:
+            self.rec = builder.build_translator(rec)
+        if loss_regular is not None:
+            self.creterion_regular = builder.build_loss(loss_regular)
+        if loss_rec is not None:
+            if loss_rec["type"] == "L1":
+                creterion = nn.L1Loss()
+            elif loss_rec["type"] == "L1":
+                creterion = nn.MSELoss()
+            self.creterion_rec = lambda x,y: creterion(x,y) * loss_rec["loss_weight"]
 
-    def forward_backbone_train(self, img, key="A"):
-        x, stem = self.backbones[key](img, True)
-        all_feature = [img, stem] + list(x)
-        return x, all_feature
-
-    def forward_seg_train(self, dataA, dataB):
-        losses = dict()
-        loss_decode_A, seg_logits_A = self._seg_forward_train(
-            self.feature["A"], dataA["img_metas"], dataA["gt_semantic_seg"]
-        )
-        loss_decode_B, seg_logits_B = self._seg_forward_train(
-            self.feature["B"], dataB["img_metas"], dataB["gt_semantic_seg"]
-        )
-        losses.update(loss_decode_A)
-        losses.update({k.replace("decode", "aux"): v for k, v in loss_decode_B.items()})
-
-        return (
-            losses,
-            {
-                "segA/A": dataA["img"].detach(),
-                "segA/logits_A": seg_logits_A.detach(),
-                "segA/gt_A": dataA["gt_semantic_seg"].detach(),
-                "segB/B": dataB["img"].detach(),
-                "segB/logits_B": seg_logits_B.detach(),
-                "segB/gt_B": dataB["gt_semantic_seg"].detach(),
-            },
-        )
-
-    def forward_gen_train(self, dataA, dataB):
-        fake_img = self.gen(
-            self.all_feature["A"], dataA["img_metas"][0]["img_norm_cfg"]
-        )
-        rec_img = self.gen(self.all_feature["B"], dataB["img_metas"][0]["img_norm_cfg"])
-        real_img = dataB["img"]
-        pred_fake = self.dis(fake_img, dataA["gt_semantic_seg"])
-        loss_idt = self.L1(rec_img, real_img)
-        loss_adv = self.gan_loss(pred_fake, target_is_real=True, is_disc=False)
-
-        losses = {
-            "gen.loss_adv": loss_adv,
-            "gen.loss_idt": loss_idt,
-        }
-        outputs = {
-            "gen/realA": dataA["img"].detach(),
-            "gen/fakeB": fake_img.detach(),
-            "gen/realB": real_img.detach(),
-            "gen/recB": rec_img.detach(),
-        }
-        return losses, outputs
-
-    def forward_dis_train(self, dataA, dataB, generated):
-        if generated is not None:
-            fake_img = generated["gen/fakeB"]
-        else:
-            with torch.no_grad():
-                fake_img = self.gen(
-                    self.all_featureA, dataA["img_metas"][0]["img_norm_cfg"]
-                ).detach()
-        fake_gt = dataA["gt_semantic_seg"]
-        real_gt = dataB["gt_semantic_seg"]
-        real_img = dataB["img"]
-        pred_fake = self.dis(fake_img, fake_gt)
-        pred_real = self.dis(real_img, real_gt)
-        losses = dict()
-        losses["dis.loss_adv"] = self.gan_loss(
-            pred_fake, target_is_real=False, is_disc=True
-        ) + self.gan_loss(pred_real, target_is_real=True, is_disc=True)
-        losses["dis.acc"] = self.gan_loss.get_accuracy(pred_real, pred_fake)
-        return losses, None
-
-    @auto_fp16(apply_to=("img",))
     def train_step(self, data_batch, optimizer, ddp_reducer=None, **kwargs):
-        work = next(self.train_flow)
-        total_losses = dict()
-        # train for network
-
-        low_image = data_batch["img"]
-        
-
-        outputs_seg, outputs_gen, outputs_dis = None, None, None
-
-        self._optim_step(optimizer, "backbone", "backbone_B")
-        # train for discriminator
-        self._optim_zero(optimizer, *optimizer.keys())
-        total_loss, total_vars = self._parse_losses(total_losses)
-        self.feature = {}
-        self.all_feature = {}
-        torch.cuda.empty_cache()
-        outputs = dict(
-            loss=total_loss,
-            log_vars=total_vars,
-            num_samples=len(dataA["img_metas"]),
-            visual={"img_metasA": dataA["img_metas"], "img_metasB": dataB["img_metas"]},
+        dataA = data_batch
+        low_img = dataA["img"]
+        img_metas = dataA["img_metas"]
+        gt_semantic_seg = dataA["gt_semantic_seg"]
+        losses_total = dict()
+        visuals = dict()
+        # forward
+        self._optim_zero(optimizer, "seg", "backbone", "gen", "rec")
+        light_img = self.gen(low_img, img_metas[0]["img_norm_cfg"])
+        losses_seg, seg_logits = self._seg_forward_train(
+            self.extract_feat(light_img), img_metas, gt_semantic_seg
         )
-        for out in [outputs_gen, outputs_dis, outputs_seg]:
-            if out is not None:
-                outputs["visual"].update(out)
+
+        losses_total.update(losses_seg)
+        if hasattr(self, "creterion_regular"):
+            loss_regular = self.creterion_regular(light_img)
+            losses_total["regular.loss"] = loss_regular
+        if hasattr(self, "rec"):
+            rec_img = self.rec(light_img, img_metas[0]["img_norm_cfg"])
+            loss_rec = self.creterion_rec(low_img, rec_img)
+            visuals["photo/rec"] = rec_img
+            losses_total["rec.loss"] = loss_rec
+        loss_total, vars_total = self._parse_losses(losses_total)
+        if ddp_reducer is not None:
+            ddp_reducer.prepare_for_backward(_find_tensors(loss_total))
+        loss_total.backward()
+        self._optim_step(optimizer, "seg", "backbone", "gen", "rec")
+        outputs = dict(
+            loss=loss_total, log_vars=vars_total, num_samples=len(dataA["img_metas"]),
+        )
+        outputs["visual"] = {
+            "photo/low": low_img,
+            "photo/light": light_img,
+            "seg/low": low_img,
+            "seg/logits": seg_logits,
+            "seg/gt": gt_semantic_seg,
+            "img_metas": img_metas,
+        }
+        outputs["visual"].update(visuals)
+
+        for photo_name in outputs["visual"]:
+            if photo_name == "img_metas":
+                continue
+            outputs["visual"][photo_name] = outputs["visual"][photo_name][0].detach()
         return outputs
+
+    @staticmethod
+    def _optim_zero(optims, *names):
+        for name in names:
+            if name in optims:
+                optims[name].zero_grad()
+
+    @staticmethod
+    def _optim_step(optims, *names):
+        for name in names:
+            if name in optims:
+                optims[name].step()
+
+    def _seg_forward_train(self, x, img_metas, gt_semantic_seg):
+        """Run forward function and calculate loss for decode head in
+        training."""
+        losses = dict()
+        loss_decode, seg_logits = self.seg.forward_train(
+            x, img_metas, gt_semantic_seg, self.train_cfg, output_pred=True
+        )
+
+        losses.update(add_prefix(loss_decode, "decode"))
+        return losses, seg_logits
+
+    def encode_decode(self, img, img_metas):
+        img = self.gen(img)
+        return super().encode_decode(img, img_metas)

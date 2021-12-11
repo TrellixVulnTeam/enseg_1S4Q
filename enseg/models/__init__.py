@@ -7,6 +7,7 @@ from .networks import *
 from .segmentors import *
 from .ganlosses import *
 from .necks import *
+from .translators import *
 from .builder import (
     BACKBONES,
     DECODE_SEG,

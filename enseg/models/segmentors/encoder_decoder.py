@@ -44,7 +44,7 @@ class EncoderDecoder(BaseSegmentor):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        assert self.with_seg
+        # assert self.with_seg
 
     def _init_seg(self, seg):
         """Initialize ``seg``"""

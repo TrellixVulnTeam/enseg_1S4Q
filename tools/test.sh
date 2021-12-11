@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-CONFIG=$1
-WEIGHT=$2
+GPUS=$1
+CONFIG=$2
+WEIGHT=$3
 
 PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
-python $(dirname "$0")/test.py $CONFIG $WEIGHT --eval mIoU
+CUDA_VISIBLE_DEVICES=$GPUS python $(dirname "$0")/test.py $CONFIG $WEIGHT --eval mIoU

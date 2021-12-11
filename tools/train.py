@@ -35,7 +35,7 @@ def main():
     """ Parsing configuration """
     args = parse_args()
     if args.config.find('DEBUG')!=-1:
-        args.config = "/home/wzx/weizhixiang/ensegment/configs/vit/upernet_deit-b16_512x512_80k_nightcity.py"
+        args.config = "/home/wzx/weizhixiang/ensegment/configs/uge/ugev1.py"
     cfg = Config.fromfile(args.config)
     if args.debug:
         cfg.evaluation["interval"] = 100

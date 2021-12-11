@@ -2,13 +2,15 @@
 import torch.nn as nn
 from mmcv.cnn import ConvModule
 from mmcv.runner import load_checkpoint
-from enseg.models.utils import generation_init_weights
+
+from .modules import generation_init_weights
 from ..builder import DECODE_GEN
 from enseg.utils import get_root_logger
 from .modules import ResidualBlockWithDropout
+import torch
 
 
-# @DECODE_GEN.register_module()
+@DECODE_GEN.register_module()
 class ResnetGenerator(nn.Module):
     """Construct a Resnet-based generator that consists of residual blocks
     between a few downsampling/upsampling operations.
@@ -129,7 +131,15 @@ class ResnetGenerator(nn.Module):
         )
         self.init_gain = 0.02 if init_cfg is None else init_cfg.get("gain", 0.02)
 
-    def forward(self, x):
+    @staticmethod
+    def tanh_denormalize(img, norm_cfg):
+        mean = torch.tensor(norm_cfg["mean"], device=img.device).view(1, 3, 1, 1)
+        std = torch.tensor(norm_cfg["std"], device=img.device).view(1, 3, 1, 1)
+        a = 127.5 / std
+        b = (127.5 - mean) / std
+        return a * img + b
+
+    def forward(self, x, norm_cfg):
         """Forward function.
 
         Args:
@@ -138,7 +148,11 @@ class ResnetGenerator(nn.Module):
         Returns:
             Tensor: Forward results.
         """
-        return self.model(x)
+        x = (2 * x - x.min() - x.max()) / (x.max() - x.min())
+        x = self.model(x)
+        x = torch.clip(x, -1, 1)
+        x = self.tanh_denormalize(x, norm_cfg)
+        return x
 
     def init_weights(self, pretrained=None, strict=True):
         """Initialize weights for the model.

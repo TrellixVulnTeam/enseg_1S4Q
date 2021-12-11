@@ -5,7 +5,7 @@ _base_ = [
     "../base/schedules/schedule_160k.py",
 ]
 
-network = dict(pretrained="pretrain/mit_b0.pth", decode_head=dict(num_classes=19))
+network = dict(pretrained="pretrain/mit_b0.pth")
 
 # optimizer
 

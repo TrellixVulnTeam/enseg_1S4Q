@@ -64,7 +64,7 @@ def trainId2labelId(map_in_trainId: object):
 
 def segmap2colormap(segmap: torch.Tensor) -> torch.Tensor:
     if segmap.ndim == 3:
-        segmap.squeeze_(0)
+        segmap=segmap.squeeze(0)
     H, W = segmap.shape
     colormap = torch.zeros([H, W, 3], dtype=torch.uint8, device=segmap.device)
     for trainId, color in enumerate(PALETTE):

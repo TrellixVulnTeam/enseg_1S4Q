@@ -126,3 +126,14 @@ class EnsegV1(BaseNetwork):
             if out is not None:
                 outputs["visual"].update(out)
         return outputs
+
+    def _seg_forward_train(self, x, img_metas, gt_semantic_seg):
+        """Run forward function and calculate loss for decode head in
+        training."""
+        losses = dict()
+        loss_decode, seg_logits = self.seg.forward_train(
+            x, img_metas, gt_semantic_seg, self.train_cfg, output_pred=True
+        )
+
+        losses.update(add_prefix(loss_decode, "decode"))
+        return losses, seg_logits
