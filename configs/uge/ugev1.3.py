@@ -14,4 +14,5 @@ network = dict(
         )
     ),
     loss_rec=dict(loss_weight=10.0, loss_type="L1",),
+    loss_regular=None,
 )
