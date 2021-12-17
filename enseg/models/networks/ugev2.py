@@ -10,10 +10,11 @@ from torch.nn.parallel.distributed import _find_tensors
 from ..builder import NETWORKS, TRANSLATOR, build_loss
 from ..segmentors import EncoderDecoder
 from enseg.core import add_prefix
+import torch
 
 
 @NETWORKS.register_module()
-class UGEV1(EncoderDecoder):
+class UGEV2(EncoderDecoder):
     def __init__(
         self,
         seg,
@@ -44,49 +45,79 @@ class UGEV1(EncoderDecoder):
             self._rec_accept_img = []
 
     def train_step(self, data_batch, optimizer, ddp_reducer=None, **kwargs):
-        dataA = data_batch
+        dataA = data_batch[0]
+        dataB = data_batch[1]
         low_img = dataA["img"]
-        img_metas = dataA["img_metas"]
-        gt_semantic_seg = dataA["gt_semantic_seg"]
-        norm_cfg = img_metas[0]["img_norm_cfg"]
+        light_img = dataB["img"]
+        img_metasA = dataA["img_metas"]
+        img_metasB = dataB["img_metas"]
+        gt_semantic_segA = dataA["gt_semantic_seg"]
+        gt_semantic_segB = dataB["gt_semantic_seg"]
+        norm_cfgA = img_metasA[0]["img_norm_cfg"]
+        norm_cfgB = img_metasB[0]["img_norm_cfg"]
         losses_total = dict()
-        optional_visuals = dict()
+        visual = {
+            "photo/light": light_img,
+            "photo/low": low_img,
+            "img_metasA": img_metasA,
+            "img_metas": img_metasA,
+            "img_metasB": img_metasB,
+            "seg/origin": low_img,
+            "seg/gt": gt_semantic_segA,
+        }
         # forward
-        self._optim_zero(optimizer, "seg", "backbone", "gen", "rec")
-        losses_gen, light_img = self.gen.forward_train(low_img, norm_cfg)
-        losses_total.update(add_prefix(losses_gen, "gen"))
+        # for seg
+        self._optim_zero(optimizer, "seg", "backbone", "gen")
+        losses_gen, enhanced_img = self.gen.forward_train(low_img, norm_cfgA)
+        visual["photo/enhanced"] = enhanced_img
+        losses_total.update(add_prefix(losses_gen, "enhanced"))
         losses_seg, seg_logits = self._seg_forward_train(
-            self.extract_feat(light_img), img_metas, gt_semantic_seg
+            self.extract_feat(enhanced_img), img_metasA, gt_semantic_segA
         )
+        visual["seg/logits"] = seg_logits
         losses_total.update(losses_seg)
-        if "low" in self._rec_accept_img:
-            losses_rec_light, rec_light = self.rec.forward_train(light_img, norm_cfg)
-            losses_total.update(add_prefix(losses_rec_light, "rec_light"))
-            optional_visuals["photo/rec_light_img"] = rec_light
-        if "light" in self._rec_accept_img:
-            losses_rec_low, rec_low = self.rec.forward_train(low_img, norm_cfg)
-            losses_total.update(add_prefix(losses_rec_low, "rec_low"))
-            optional_visuals["photo/rec_low_img"] = rec_low
+        # for regularizer rec
+        losses_rec_enhanced, rec_enhanced = self.rec.forward_train(
+            enhanced_img, norm_cfgA
+        )
+        losses_total.update(add_prefix(losses_rec_enhanced, "gen.enhanced_img"))
+        visual["photo/rec_enhanced_img"] = rec_enhanced
         loss_total, vars_total = self._parse_losses(losses_total)
         if ddp_reducer is not None:
             ddp_reducer.prepare_for_backward(_find_tensors(loss_total))
         loss_total.backward()
-        self._optim_step(optimizer, "seg", "backbone", "gen", "rec")
+        self._optim_step(optimizer, "seg", "backbone", "gen")
+        # optimizer dis
+        self._optim_zero(optimizer, "rec")
+        losses_dis = {}
+        if "low" in self._rec_accept_img:
+            losses_rec_low, rec_low = self.rec.forward_train(low_img, norm_cfgA)
+            losses_dis.update(add_prefix(losses_rec_low, "rec.low"))
+            visual["photo/rec_low"] = rec_low
+        if "light" in self._rec_accept_img:
+            losses_rec_light, rec_light = self.rec.forward_train(light_img, norm_cfgA)
+            losses_dis.update(add_prefix(losses_rec_light, "rec.light"))
+            visual["photo/rec_light"] = rec_light
+        losses_rec_enhanced, rec_enhanced = self.rec.forward_train(
+            enhanced_img.detach(), norm_cfgA
+        )
+        for loss in losses_rec_enhanced.keys():
+            losses_rec_enhanced[loss] = -2 * losses_rec_enhanced[loss]
+        losses_dis.update(add_prefix(losses_rec_enhanced, "rec.enhanced_img"))
+        loss_dis, vars_total = self._parse_losses(losses_dis)
+        if ddp_reducer is not None:
+            ddp_reducer.prepare_for_backward(_find_tensors(loss_dis))
+        loss_dis.backward()
+        self._optim_step(optimizer, "rec")
+        losses_total.update(losses_dis)
+        loss_total, vars_total = self._parse_losses(losses_total)
         outputs = dict(
             loss=loss_total, log_vars=vars_total, num_samples=len(dataA["img_metas"]),
         )
-        outputs["visual"] = {
-            "photo/low": low_img,
-            "photo/light": light_img,
-            "seg/low": low_img,
-            "seg/logits": seg_logits,
-            "seg/gt": gt_semantic_seg,
-            "img_metas": img_metas,
-        }
-        outputs["visual"].update(optional_visuals)
+        outputs["visual"] = visual
 
         for photo_name in outputs["visual"]:
-            if photo_name == "img_metas":
+            if photo_name.find("img_metas") != -1:
                 continue
             outputs["visual"][photo_name] = outputs["visual"][photo_name][0].detach()
         return outputs

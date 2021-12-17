@@ -39,6 +39,7 @@ class ResnetGenerator(nn.Module):
         base_channels=64,
         norm_cfg=dict(type="IN"),
         use_dropout=False,
+        num_down=2,
         num_blocks=9,
         padding_mode="reflect",
         init_cfg=dict(type="normal", gain=0.02),
@@ -68,14 +69,13 @@ class ResnetGenerator(nn.Module):
             )
         ]
 
-        num_down = 2
         # add downsampling layers
         for i in range(num_down):
             multiple = 2 ** i
             model += [
                 ConvModule(
-                    in_channels=base_channels * multiple,
-                    out_channels=base_channels * multiple * 2,
+                    in_channels=min(base_channels * multiple, 512),
+                    out_channels=min(base_channels * multiple * 2, 512),
                     kernel_size=3,
                     stride=2,
                     padding=1,
@@ -89,7 +89,7 @@ class ResnetGenerator(nn.Module):
         for i in range(num_blocks):
             model += [
                 ResidualBlockWithDropout(
-                    base_channels * multiple,
+                    min(base_channels * multiple, 512),
                     padding_mode=padding_mode,
                     norm_cfg=norm_cfg,
                     use_dropout=use_dropout,
@@ -101,8 +101,8 @@ class ResnetGenerator(nn.Module):
             multiple = 2 ** (num_down - i)
             model += [
                 ConvModule(
-                    in_channels=base_channels * multiple,
-                    out_channels=base_channels * multiple // 2,
+                    in_channels=min(base_channels * multiple, 512),
+                    out_channels=min(base_channels * multiple // 2, 512),
                     kernel_size=3,
                     stride=2,
                     padding=1,
@@ -131,14 +131,6 @@ class ResnetGenerator(nn.Module):
         )
         self.init_gain = 0.02 if init_cfg is None else init_cfg.get("gain", 0.02)
 
-    @staticmethod
-    def tanh_denormalize(img, norm_cfg):
-        mean = torch.tensor(norm_cfg["mean"], device=img.device).view(1, 3, 1, 1)
-        std = torch.tensor(norm_cfg["std"], device=img.device).view(1, 3, 1, 1)
-        a = 127.5 / std
-        b = (127.5 - mean) / std
-        return a * img + b
-
     def forward(self, x, norm_cfg):
         """Forward function.
 
@@ -148,10 +140,8 @@ class ResnetGenerator(nn.Module):
         Returns:
             Tensor: Forward results.
         """
-        x = (2 * x - x.min() - x.max()) / (x.max() - x.min())
         x = self.model(x)
         x = torch.clip(x, -1, 1)
-        x = self.tanh_denormalize(x, norm_cfg)
         return x
 
     def init_weights(self, pretrained=None, strict=True):

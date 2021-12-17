@@ -49,6 +49,7 @@ class UnetGenerator(nn.Module):
         assert "type" in norm_cfg, "'norm_cfg' must have key 'type'"
         self.skip = skip
         self.noise_std = noise_std
+        self.add_noise_flag = False
         # add the innermost layer
         unet_block = UnetSkipConnectionBlock(
             base_channels * 8,
@@ -106,19 +107,20 @@ class UnetGenerator(nn.Module):
         )
         self.init_gain = 0.02 if init_cfg is None else init_cfg.get("gain", 0.02)
 
-    @staticmethod
-    def tanh_denormalize(img, norm_cfg):
-        mean = torch.tensor(norm_cfg["mean"], device=img.device).view(1, 3, 1, 1)
-        std = torch.tensor(norm_cfg["std"], device=img.device).view(1, 3, 1, 1)
-        a = 127.5 / std
-        b = (127.5 - mean) / std
-        return a * img + b
+    def eval(self):
+        self.add_noise_flag = False
+        return super().eval()
+
+    def train(self, mode: bool = True):
+        if mode:
+            self.add_noise_flag = True
+        return super().train(mode=mode)
 
     def forward(self, x, norm_cfg):
-        x = (2 * x - x.min() - x.max()) / (x.max() - x.min())
-        x = self.model(x) + self.skip * x + torch.randn_like(x) * self.noise_std
+        x = self.model(x) + self.skip * x
+        if self.add_noise_flag:
+            x = x + torch.randn_like(x) * self.noise_std
         x = torch.clip(x, -1, 1)
-        x = self.tanh_denormalize(x, norm_cfg)
         return x
 
     def init_weights(self, pretrained=None, strict=True):

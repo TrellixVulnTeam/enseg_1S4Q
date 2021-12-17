@@ -10,6 +10,7 @@ from .dice_loss import DiceLoss
 from .lovasz_loss import LovaszLoss
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 from .zero_dce import *
+from .rec_loss import *
 
 __all__ = [
     "accuracy",

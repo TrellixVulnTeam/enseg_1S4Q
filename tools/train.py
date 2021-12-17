@@ -35,7 +35,7 @@ def main():
     """ Parsing configuration """
     args = parse_args()
     if args.config.find('DEBUG')!=-1:
-        args.config = "/home/wzx/weizhixiang/ensegment/configs/uge/ugev1.py"
+        args.config = "/home/wzx/weizhixiang/ensegment/configs/ugev2/ugev2_r18_270k.py"
     cfg = Config.fromfile(args.config)
     if args.debug:
         cfg.evaluation["interval"] = 100
@@ -94,7 +94,7 @@ def main():
     network.init_weights()
     # SyncBN is not support for DP
     if not distributed:
-        model = revert_sync_batchnorm(network)
+        network = revert_sync_batchnorm(network)
     if distributed:
         find_unused_parameters = cfg.get("find_unused_parameters", False)
         use_ddp_wrapper = cfg.get("use_ddp_wrapper", False)
