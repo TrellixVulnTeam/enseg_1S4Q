@@ -33,20 +33,31 @@ from enseg.core.runners.apex_amp_utils import apex_amp_initialize
 def main():
     # ---------------------------------#
     """ Parsing configuration """
+    print(osp.abspath(os.curdir))
     args = parse_args()
-    if args.config.find('DEBUG')!=-1:
-        args.config = "/home/wzx/weizhixiang/ensegment/configs/ugev2/ugev2_r18_270k.py"
+    if args.config.find("DEBUG") != -1:
+        args.config = (
+            "/home/wzx/weizhixiang/ensegment/configs/base/models/upernet_swin.py"
+        )
     cfg = Config.fromfile(args.config)
     if args.debug:
-        cfg.evaluation["interval"] = 100
+        # cfg.evaluation["interval"] = 100
         cfg.total_iters = 1000
         cfg.log_config.interval = 5
         cfg.log_config.hooks[0]["interval"] = 5
         # cfg.log_config.hooks.pop(-1)
-        args.gpu_ids = get_available_gpu([0])
+        # args.gpu_ids = get_available_gpu([0])
         # cfg.data.samples_per_gpu = 2
         # cfg.data.workers_per_gpu = 1
-    cfg.work_dir = osp.join("./work_dirs", osp.splitext(osp.basename(args.config))[0])
+    if args.work_dir is not None:
+        cfg.work_dir = osp.join(
+            args.work_dir, osp.splitext(osp.basename(args.config))[0]
+        )
+    else:
+        cfg.work_dir = osp.join(
+            "./work_dirs", osp.splitext(osp.basename(args.config))[0]
+        )
+
     if args.load_from is not None:
         cfg.load_from = args.load_from
     if args.resume_from is not None:
@@ -197,10 +208,11 @@ def main():
         shuffle=False,
     )
     # register eval hooks
-    eval_cfg = cfg.get("evaluation", {})
-    eval_cfg["by_epoch"] = False
-    eval_hook = DistEvalHook if distributed else EvalHook
-    runner.register_hook(eval_hook(val_dataloader, **eval_cfg), priority="LOW")
+    eval_cfg = cfg.pop("evaluation")
+    if eval_cfg is not None:
+        eval_cfg["by_epoch"] = False
+        eval_hook = DistEvalHook if distributed else EvalHook
+        runner.register_hook(eval_hook(val_dataloader, **eval_cfg), priority="LOW")
     # register custom hook
     if cfg.get("custom_hooks", None):
         custom_hooks = cfg.custom_hooks

@@ -1,8 +1,8 @@
 # dataset settings
 dataset_type = "UnpairedDataset"
-data_root = "data/enseg/nightcity"
+data_root = "/home/wzx/weizhixiang/ensegment/data/enseg/nightcity"
 aux_type = "CityscapesDataset"
-aux_root = "data/enseg/cityscape"
+aux_root = "/home/wzx/weizhixiang/ensegment/data/enseg/cityscape"
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True
 )

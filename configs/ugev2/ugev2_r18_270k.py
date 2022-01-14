@@ -23,7 +23,9 @@ network = dict(
 optimizer = dict(
     _delete_=True,
     # backbone=dict(type="SGD", lr=0.0001, momentum=0.9, weight_decay=0.0005),
-    # seg=dict(type="SGD", lr=0.0001, momentum=0.9, weight_decay=0.0005),
-    gen=dict(type="Adam", lr=0.001, betas=(0.5, 0.999)),
-    rec=dict(type="SGD", lr=0.001),
+    seg=dict(type="SGD", lr=0.000001, momentum=0.9, weight_decay=0.0005),
+    gen=dict(type="Adam", lr=0.0001, betas=(0.5, 0.999)),
+    rec=dict(type="Adam", lr=0.0001, betas=(0.5, 0.999)),
 )
+data = dict(samples_per_gpu=8, workers_per_gpu=4)
+lr_config = dict(policy="poly", power=0.9, min_lr=1e-6, by_epoch=False)

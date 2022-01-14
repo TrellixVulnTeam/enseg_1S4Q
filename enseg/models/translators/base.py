@@ -30,6 +30,19 @@ class BaseTranslator(BaseModule):
                     self.creterions[idx] = creterion.cuda()
 
     @staticmethod
+    def tanh_normalize(img, norm_cfg):
+        # normalize -m/s~(255-m)/s img to -1,1
+        mean = torch.tensor(
+            norm_cfg["mean"], device=img.device, requires_grad=False
+        ).view(1, 3, 1, 1)
+        std = torch.tensor(
+            norm_cfg["std"], device=img.device, requires_grad=False
+        ).view(1, 3, 1, 1)
+        a = 2 * std / 255
+        b = (2 * mean - 255) / 255
+        return a * img + b
+
+    @staticmethod
     def tanh_denormalize(img, norm_cfg):
         # normalize -1~1 img to 0~255, then normalize it by (x-mean)/std
         mean = torch.tensor(
@@ -42,19 +55,27 @@ class BaseTranslator(BaseModule):
         b = (127.5 - mean) / std
         return a * img + b
 
-    def forward(self, img, norm_cfg):
-        norm_img = (2 * img - img.min() - img.max()) / (img.max() - img.min())
+    def forward(self, img, norm_cfg=None):
+        if norm_cfg is None:
+            norm_cfg = dict(
+                mean=[img[:, i].mean() for i in range(3)],
+                std=[img[:, i].std() for i in range(3)],
+            )
+        norm_img = self.tanh_normalize(img, norm_cfg)
         if hasattr(self, "model"):
-            norm_translated = self.model(norm_img, norm_cfg)
+            norm_translated = self.model(norm_img)
         else:
-            norm_translated = self.decode(self.encode(norm_img, norm_cfg))
-        translated = self.tanh_denormalize(norm_translated, norm_cfg)
-        return translated
+            norm_translated = self.decode(self.encode(norm_img))
+        return self.tanh_denormalize(norm_translated, norm_cfg)
 
-    def forward_train(self, img, norm_cfg):
+    def forward_train(self, img, norm_cfg=None, ground_truth=None):
         losses = {}
         generated = self(img, norm_cfg)
+        if ground_truth is None:
+            ground_truth = img
         if hasattr(self, "creterions"):
             for creterion in self.creterions:
-                losses[f"loss_{creterion.name}"] = creterion(img, generated, norm_cfg)
+                losses[f"loss_{creterion.name}"] = creterion(
+                    generated, ground_truth, norm_cfg
+                )
         return losses, generated

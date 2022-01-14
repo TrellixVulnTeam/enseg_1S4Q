@@ -16,7 +16,6 @@ class SimilarLoss(nn.Module):
         self.alpha = alpha
         self.ssim = pytorch_msssim.SSIM()
         self.creterion = nn.L1Loss()
-        self.to()
 
     def forward(self, img1, img2):
         ndim = img1.ndim
@@ -27,27 +26,29 @@ class SimilarLoss(nn.Module):
         elif ndim == 3:
             img1.unsqueeze_(0)
             img2.unsqueeze_(0)
-        if self.alpha == 0:
-            ssim_result = 0
-        else:
-            ssim_result = self.alpha * (1 - self.ssim(img1, img2))
+        ssim_result = self.alpha * (1 - self.ssim(img1, img2))
         L1_result = (1 - self.alpha) * self.creterion(img1, img2)
         return ssim_result + L1_result
 
 
+class SSIMLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.ssim = pytorch_msssim.SSIM()
+
+    def forward(self, img1, img2):
+        return 1 - self.ssim(img1, img2)
+
+
 @LOSSES.register_module()
 class PixelLoss:
-    def __init__(self, loss_weight=1.0, loss_type="L1"):
+    def __init__(self, loss_weight=1.0, loss_type="L1", loss_params={}):
         relation = dict(
-            L1=nn.L1Loss,
-            L2=nn.MSELoss,
-            SSIM=pytorch_msssim.SSIM(),
-            Similar=SimilarLoss,
+            L1=nn.L1Loss, L2=nn.MSELoss, SSIM=SSIMLoss, Similar=SimilarLoss,
         )
         self.name = f"PixelLoss_{loss_type}"
-        self.creterion = relation[loss_type]()
+        self.creterion = relation[loss_type](**loss_params)
         self.loss_weight = loss_weight
 
-    def __call__(self, img, generated, norm_cfg):
-        return self.creterion(img, generated) * self.loss_weight
-
+    def __call__(self, generated, ground_truth, norm_cfg):
+        return self.creterion(ground_truth, generated) * self.loss_weight

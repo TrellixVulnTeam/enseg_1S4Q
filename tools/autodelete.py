@@ -69,5 +69,5 @@ def delete_log(root):
 if __name__ == "__main__":
     root = "/home/wzx/weizhixiang/ensegment/work_dirs"
     delete_model(root)
-    delete_log(root)
+    # delete_log(root)
     # print(json_need_delete('/home/wzx/weizhixiang/ensegment/work_dirs/ugev1.1/20211201_191852.log.json'))

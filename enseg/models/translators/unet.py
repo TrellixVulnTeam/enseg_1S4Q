@@ -116,7 +116,7 @@ class UnetGenerator(nn.Module):
             self.add_noise_flag = True
         return super().train(mode=mode)
 
-    def forward(self, x, norm_cfg):
+    def forward(self, x):
         x = self.model(x) + self.skip * x
         if self.add_noise_flag:
             x = x + torch.randn_like(x) * self.noise_std

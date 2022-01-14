@@ -1,8 +1,14 @@
 # model settings
-norm_cfg = dict(type='SyncBN', requires_grad=True)
+norm_cfg = dict(type="SyncBN", requires_grad=True)
 network = dict(
     type="EnsegV4",
     pretrained="open-mmlab://resnet50_v1c",
+    rec_loss=dict(
+        type="PixelLoss",
+        loss_weight=0.1,
+        loss_type="Similar",
+        loss_params=dict(alpha=0.8),
+    ),
     backbone=dict(
         type="ResNetV1c",
         depth=50,

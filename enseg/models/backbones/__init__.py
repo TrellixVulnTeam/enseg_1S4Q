@@ -16,6 +16,7 @@ from .timm_backbone import TIMMBackbone
 from .unet import UNet
 from .vit import VisionTransformer
 from .multi_light import MultiLight
+from .convnext import ConvNeXt
 
 __all__ = [
     "ResNet",

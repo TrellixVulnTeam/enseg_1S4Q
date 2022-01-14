@@ -38,6 +38,9 @@ class UGEV2(EncoderDecoder):
         )
         # self._seg_is_fixed = not seg["need_train"]
         self.gen = builder.build_translator(gen)
+        self.k_t = 0
+        self.lambda_k = 0.001
+        self.gamma = 0.5
         if rec is not None:
             self._rec_accept_img = rec.pop("accept_img")
             self.rec = builder.build_translator(rec)
@@ -70,9 +73,11 @@ class UGEV2(EncoderDecoder):
         self._optim_zero(optimizer, "seg", "backbone", "gen")
         losses_gen, enhanced_img = self.gen.forward_train(low_img, norm_cfgA)
         visual["photo/enhanced"] = enhanced_img
+        noise_ehanced_img = enhanced_img + torch.randn_like(enhanced_img) * 0.08
+        visual["photo/noise_enhanced"] = noise_ehanced_img
         losses_total.update(add_prefix(losses_gen, "enhanced"))
         losses_seg, seg_logits = self._seg_forward_train(
-            self.extract_feat(enhanced_img), img_metasA, gt_semantic_segA
+            self.extract_feat(noise_ehanced_img), img_metasA, gt_semantic_segA
         )
         visual["seg/logits"] = seg_logits
         losses_total.update(losses_seg)
@@ -87,6 +92,7 @@ class UGEV2(EncoderDecoder):
             ddp_reducer.prepare_for_backward(_find_tensors(loss_total))
         loss_total.backward()
         self._optim_step(optimizer, "seg", "backbone", "gen")
+
         # optimizer dis
         self._optim_zero(optimizer, "rec")
         losses_dis = {}
@@ -98,16 +104,23 @@ class UGEV2(EncoderDecoder):
             losses_rec_light, rec_light = self.rec.forward_train(light_img, norm_cfgA)
             losses_dis.update(add_prefix(losses_rec_light, "rec.light"))
             visual["photo/rec_light"] = rec_light
+
         losses_rec_enhanced, rec_enhanced = self.rec.forward_train(
             enhanced_img.detach(), norm_cfgA
         )
+        loss_real, _ = self._parse_losses(losses_dis)
+        loss_fake, _ = self._parse_losses(losses_rec_enhanced)
         for loss in losses_rec_enhanced.keys():
-            losses_rec_enhanced[loss] = -2 * losses_rec_enhanced[loss]
+            losses_rec_enhanced[loss] = -self.k_t * losses_rec_enhanced[loss]
         losses_dis.update(add_prefix(losses_rec_enhanced, "rec.enhanced_img"))
         loss_dis, vars_total = self._parse_losses(losses_dis)
         if ddp_reducer is not None:
             ddp_reducer.prepare_for_backward(_find_tensors(loss_dis))
         loss_dis.backward()
+        self.k_t += self.lambda_k * (
+            self.gamma * loss_real.detach() - loss_fake.detach()
+        )
+        self.k_t = max(min(1, self.k_t), 0)
         self._optim_step(optimizer, "rec")
         losses_total.update(losses_dis)
         loss_total, vars_total = self._parse_losses(losses_total)

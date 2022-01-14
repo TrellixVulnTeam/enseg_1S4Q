@@ -29,34 +29,6 @@ network = dict(
         align_corners=False,
         loss_decode=dict(type="CrossEntropyLoss", use_sigmoid=False, loss_weight=1.0),
     ),
-    aux=dict(
-        type="FCNHead",
-        in_channels=1024,
-        in_index=2,
-        channels=256,
-        num_convs=1,
-        concat_input=False,
-        dropout_ratio=0.1,
-        num_classes=19,
-        norm_cfg=norm_cfg,
-        align_corners=False,
-        loss_decode=dict(type="CrossEntropyLoss", use_sigmoid=False, loss_weight=0.4),
-    ),
-    gen=dict(
-        type="UnetGen",
-        act_cfg=dict(type="LeakyReLU"),
-        norm_cfg=dict(type="IN"),
-        padding_mode="reflect",
-        init_cfg=dict(type="normal", gain=0.02),
-    ),
-    dis=dict(
-        type="PatchDiscriminator",
-        in_channels=3,
-        base_channels=64,
-        num_conv=3,
-        norm_cfg=dict(type="IN"),
-        init_cfg=dict(type="normal", gain=0.02),
-    ),
     train_flow=[("s", 10)],
     # model training and testing settings
     train_cfg=dict(),
@@ -65,7 +37,4 @@ network = dict(
 optimizer = dict(
     backbone=dict(type="SGD", lr=0.01, momentum=0.9, weight_decay=0.0005),
     seg=dict(type="SGD", lr=0.01, momentum=0.9, weight_decay=0.0005),
-    aux=dict(type="SGD", lr=0.01, momentum=0.9, weight_decay=0.0005),
-    dis=dict(type="Adam", lr=0.0003, betas=(0.5, 0.999)),
-    gen=dict(type="Adam", lr=0.0001, betas=(0.5, 0.999)),
 )

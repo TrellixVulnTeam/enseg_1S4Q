@@ -131,7 +131,7 @@ class ResnetGenerator(nn.Module):
         )
         self.init_gain = 0.02 if init_cfg is None else init_cfg.get("gain", 0.02)
 
-    def forward(self, x, norm_cfg):
+    def forward(self, x):
         """Forward function.
 
         Args:

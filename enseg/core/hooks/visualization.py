@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from enseg.ops.wrappers import resize
 from torch import Tensor
 from enseg.utils.image_visual import segmap2colormap, de_normalize
+from torchvision.utils import make_grid
 
 
 @HOOKS.register_module()
@@ -68,6 +69,7 @@ class VisualizationHook(LoggerHook):
     @master_only
     @torch.no_grad()
     def visual(self, runner):
+        nrow = 3
         visual = runner.outputs["visual"]
         collected = defaultdict(list)
         for k, v in visual.items():
@@ -93,7 +95,10 @@ class VisualizationHook(LoggerHook):
             v = sorted(collected[k], key=lambda x: x[1])
             imgs = [vv[0] for vv in v]
             strs = [vv[1] for vv in v]
-            title = f"{k}: {' | '.join(strs)}"
+            pre_title = [
+                " | ".join(strs[idx : idx + nrow]) for idx in range(0, len(strs), nrow)
+            ]
+            title = "{}: {}".format(k, " ; ".join(pre_title))
             max_shape = max(imgs, key=Tensor.numel).shape[-2:]
             imgs = [
                 F.interpolate(
@@ -106,7 +111,12 @@ class VisualizationHook(LoggerHook):
                 else img
                 for img in imgs
             ]
-            self.writer.add_image(title, torch.cat(imgs, 2), self.get_iter(runner))
+            grids = make_grid(imgs, nrow)
+            # print(grids.shape)
+            # self.writer.add_images(title, torch.stack(imgs,0), self.get_iter(runner))
+
+            self.writer.add_image(title, grids, self.get_iter(runner))
+            self.writer.flush()
 
     @master_only
     def after_run(self, runner):

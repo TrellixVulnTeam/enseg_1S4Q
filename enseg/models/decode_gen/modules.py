@@ -21,18 +21,17 @@ class ResidualBlockWithDropout(nn.Module):
         use_dropout (bool): Whether to use dropout layers. Default: True.
     """
 
-    def __init__(self,
-                 channels,
-                 padding_mode,
-                 norm_cfg=dict(type='BN'),
-                 use_dropout=True):
+    def __init__(
+        self, channels, padding_mode, norm_cfg=dict(type="BN"), use_dropout=True
+    ):
         super().__init__()
-        assert isinstance(norm_cfg, dict), ("'norm_cfg' should be dict, but"
-                                            f'got {type(norm_cfg)}')
-        assert 'type' in norm_cfg, "'norm_cfg' must have key 'type'"
+        assert isinstance(norm_cfg, dict), (
+            "'norm_cfg' should be dict, but" f"got {type(norm_cfg)}"
+        )
+        assert "type" in norm_cfg, "'norm_cfg' must have key 'type'"
         # We use norm layers in the residual block with dropout layers.
         # Only for IN, use bias to follow cyclegan's original implementation.
-        use_bias = norm_cfg['type'] == 'IN'
+        use_bias = norm_cfg["type"] == "IN"
 
         block = [
             ConvModule(
@@ -42,7 +41,8 @@ class ResidualBlockWithDropout(nn.Module):
                 padding=1,
                 bias=use_bias,
                 norm_cfg=norm_cfg,
-                padding_mode=padding_mode)
+                padding_mode=padding_mode,
+            )
         ]
 
         if use_dropout:
@@ -57,7 +57,8 @@ class ResidualBlockWithDropout(nn.Module):
                 bias=use_bias,
                 norm_cfg=norm_cfg,
                 act_cfg=None,
-                padding_mode=padding_mode)
+                padding_mode=padding_mode,
+            )
         ]
 
         self.block = nn.Sequential(*block)

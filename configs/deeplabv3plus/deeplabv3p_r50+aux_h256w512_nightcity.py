@@ -1,0 +1,22 @@
+_base_ = [
+    "../base/datasets/nightcity_h256w512.py",
+    "../base/default_runtime.py",
+    "../base/models/deeplabv3p_r50.py",
+    "../base/schedules/schedule_80k.py",
+]
+network = dict(
+    aux=dict(
+        type="FCNHead",
+        in_channels=1024,
+        in_index=2,
+        channels=256,
+        num_convs=1,
+        concat_input=False,
+        dropout_ratio=0.1,
+        num_classes=19,
+        norm_cfg=norm_cfg,
+        align_corners=False,
+        loss_decode=dict(type="CrossEntropyLoss", use_sigmoid=False, loss_weight=0.4),
+    )
+)
+

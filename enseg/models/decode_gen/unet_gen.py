@@ -6,14 +6,19 @@ from mmcv.cnn.bricks.activation import build_activation_layer
 
 from ..builder import DECODE_GEN, NECKS
 from .base import BaseGen
+from .modules import ResidualBlockWithDropout
 
 
 @NECKS.register_module()
-class ResnetNeck(nn.Module):
+class UnetNeck(nn.Module):
     # dim; scale factor to img;
-    resnet50 = {
+    ResNetV1c = {
         "x": [[3, 1], [64, 2], [256, 4], [512, 8], [1024, 8], [2048, 8]],
         "y": [[32, 1], [64, 2], [256, 4], [512, 8], [1024, 16], [2048, 32]],
+    }
+    SwinTransformer = {
+        "x": [[3, 1], [128, 4], [256, 8], [512, 16], [1024, 32]],
+        "y": [[32, 1], [64, 4], [128, 8], [256, 16], [512, 32]],
     }
 
     def __init__(self, arch, conv_cfg, norm_cfg, act_cfg, padding_mode):
@@ -32,20 +37,40 @@ class ResnetNeck(nn.Module):
                 kernel, stride, pad, dilation = 4, 2, 1, 1
             elif 4 * x_factor == y_factor:
                 kernel, stride, pad, dilation = 4, 4, 0, 1
-            self.models.append(
-                ConvModule(
-                    x_dim,
-                    y_dim,
-                    kernel,
-                    stride,
-                    pad,
-                    dilation,
-                    conv_cfg=conv_cfg,
-                    norm_cfg=norm_cfg,
-                    act_cfg=act_cfg,
-                    padding_mode=padding_mode,
-                ),
-            )
+            if x_dim == 3:
+                self.models.append(
+                    nn.Sequential(
+                        ResidualBlockWithDropout(x_dim, padding_mode, norm_cfg, True),
+                        ConvModule(
+                            x_dim,
+                            y_dim,
+                            kernel,
+                            stride,
+                            pad,
+                            dilation,
+                            conv_cfg=conv_cfg,
+                            norm_cfg=norm_cfg,
+                            act_cfg=act_cfg,
+                            padding_mode=padding_mode,
+                        ),
+                        ResidualBlockWithDropout(y_dim, padding_mode, norm_cfg, True),
+                    )
+                )
+            else:
+                self.models.append(
+                    ConvModule(
+                        x_dim,
+                        y_dim,
+                        kernel,
+                        stride,
+                        pad,
+                        dilation,
+                        conv_cfg=conv_cfg,
+                        norm_cfg=norm_cfg,
+                        act_cfg=act_cfg,
+                        padding_mode=padding_mode,
+                    ),
+                )
 
     def forward(self, features):
         return [m(f) for f, m in zip(features, self.models)]
@@ -63,6 +88,7 @@ class UnetGen(BaseGen):
         norm_cfg=None,
         act_cfg=None,
         padding_mode="reflect",
+        neck_type="ResNetV1c",
         align_corners=False,
         init_cfg=None,
     ):
@@ -74,8 +100,8 @@ class UnetGen(BaseGen):
             align_corners=align_corners,
             init_cfg=init_cfg,
         )
-        self.neck = ResnetNeck(
-            ResnetNeck.resnet50, conv_cfg, norm_cfg, act_cfg, padding_mode
+        self.neck = UnetNeck(
+            getattr(UnetNeck, neck_type), conv_cfg, norm_cfg, act_cfg, padding_mode
         )
         models = nn.ModuleList()
         fea_dims = [x[0] for x in self.neck.arch["y"]][::-1]
@@ -115,15 +141,7 @@ class UnetGen(BaseGen):
             nn.Tanh(),
         )
 
-    @staticmethod
-    def tanh_denormalize(img, norm_cfg):
-        mean = torch.tensor(norm_cfg["mean"], device=img.device).view(1, 3, 1, 1)
-        std = torch.tensor(norm_cfg["std"], device=img.device).view(1, 3, 1, 1)
-        a = 127.5 / std
-        b = (127.5 - mean) / std
-        return a * img + b
-
-    def forward(self, inputs, norm_cfg):
+    def forward_model(self, inputs):
         """Forward function.
         inputs: size:big->small,channel: less->many
         """
@@ -141,6 +159,4 @@ class UnetGen(BaseGen):
                 x = torch.cat([x, y], 1)
             y = layer(x)
         y = self.last_layer(y)
-        y = self.tanh_denormalize(y, norm_cfg)
-
         return y

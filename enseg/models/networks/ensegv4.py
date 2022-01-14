@@ -30,6 +30,7 @@ class EnsegV4(BaseNetwork):
         gen=None,
         dis=None,
         gan_loss=None,
+        rec_loss=None,
         pretrained=None,
         train_flow=None,
         train_cfg=None,
@@ -49,8 +50,8 @@ class EnsegV4(BaseNetwork):
             test_cfg=test_cfg,
             init_cfg=init_cfg,
         )
-        self.mce = nn.MSELoss()
-        self.L1 = nn.L1Loss()
+        if rec_loss is not None:
+            self.creterion_rec = builder.build_loss(rec_loss)
         backbone_B = builder.build_backbone(backbone)
         self.backbones = dict(A=self.backbone, B=backbone_B)
         self.backbone_B = backbone_B
@@ -61,6 +62,9 @@ class EnsegV4(BaseNetwork):
         x, stem = self.backbones[key](img, True)
         all_feature = [img, stem] + list(x)
         return x, all_feature
+        # x = self.backbones[key](img)
+        # all_feature = [img] + list(x)
+        # return x, all_feature
 
     def forward_seg_train(self, dataA, dataB):
         losses = dict()
@@ -85,19 +89,32 @@ class EnsegV4(BaseNetwork):
             },
         )
 
+    # def forward_gen_train(self, dataA, dataB):
+    #     norm_cfg = dataA["img_metas"][0]["img_norm_cfg"]
+    #     rec_img = self.gen(self.all_feature["B"], norm_cfg)
+    #     real_img = dataB["img"]
+    #     loss_rec = self.creterion_rec(rec_img, real_img, norm_cfg)
+    #     losses = {
+    #         "gen.loss_idt": loss_rec,
+    #     }
+    #     outputs = {
+    #         "gen/realA": dataA["img"].detach(),
+    #         "gen/realB": real_img.detach(),
+    #         "gen/recB": rec_img.detach(),
+    #     }
+    #     return losses, outputs
+
     def forward_gen_train(self, dataA, dataB):
-        fake_img = self.gen(
-            self.all_feature["A"], dataA["img_metas"][0]["img_norm_cfg"]
-        )
-        rec_img = self.gen(self.all_feature["B"], dataB["img_metas"][0]["img_norm_cfg"])
+        norm_cfg = dataA["img_metas"][0]["img_norm_cfg"]
+        fake_img = self.gen(self.all_feature["A"], norm_cfg)
+        rec_img = self.gen(self.all_feature["B"], norm_cfg)
         real_img = dataB["img"]
         pred_fake = self.dis(fake_img, dataA["gt_semantic_seg"])
-        loss_idt = self.L1(rec_img, real_img)
+        loss_rec = self.creterion_rec(rec_img, real_img, norm_cfg)
         loss_adv = self.gan_loss(pred_fake, target_is_real=True, is_disc=False)
-
         losses = {
             "gen.loss_adv": loss_adv,
-            "gen.loss_idt": loss_idt,
+            "gen.loss_idt": loss_rec,
         }
         outputs = {
             "gen/realA": dataA["img"].detach(),

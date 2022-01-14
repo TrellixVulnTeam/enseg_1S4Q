@@ -5,5 +5,5 @@ _base_ = [
     "../base/schedules/schedule_80k.py",
 ]
 
-data = dict(samples_per_gpu=2, workers_per_gpu=2)
+data = dict(samples_per_gpu=8, workers_per_gpu=8)
 
