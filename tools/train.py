@@ -37,7 +37,7 @@ def main():
     args = parse_args()
     if args.config.find("DEBUG") != -1:
         args.config = (
-            "/home/wzx/weizhixiang/ensegment/configs/base/models/upernet_swin.py"
+            "/home/wzx/weizhixiang/ensegment/configs/convnext/upernet_convnext_base+upergen_h256w512_80k_nightcity.py"
         )
     cfg = Config.fromfile(args.config)
     if args.debug:
@@ -47,8 +47,8 @@ def main():
         cfg.log_config.hooks[0]["interval"] = 5
         # cfg.log_config.hooks.pop(-1)
         # args.gpu_ids = get_available_gpu([0])
-        # cfg.data.samples_per_gpu = 2
-        # cfg.data.workers_per_gpu = 1
+        cfg.data.samples_per_gpu = 2
+        cfg.data.workers_per_gpu = 1
     if args.work_dir is not None:
         cfg.work_dir = osp.join(
             args.work_dir, osp.splitext(osp.basename(args.config))[0]
@@ -62,6 +62,11 @@ def main():
         cfg.load_from = args.load_from
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
+
+    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+    if cfg.resume_from:
+        meta = torch.load(cfg.resume_from)["meta"]
+        timestamp = meta.get("timestamp", timestamp)
     cfg.gpu_ids = args.gpu_ids
     # init distributed env first, since logger depends on the dist info.
     if args.launcher == "none":
@@ -74,7 +79,7 @@ def main():
         cfg.gpu_ids = range(world_size)
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
     cfg.dump(osp.join(cfg.work_dir, osp.basename(args.config)))
-    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+
     log_file = osp.join(cfg.work_dir, f"{timestamp}.log")
     logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
     # init the meta dict to record some important information such as
@@ -87,6 +92,7 @@ def main():
     logger.info(f"Distributed training: {distributed}")
     # logger.info("Environment info:\n" + dash_line + env_info + "\n" + dash_line)
     meta["env_info"] = env_info
+    meta["timestamp"] = timestamp
     logger.info(f"Config:\n{cfg.pretty_text}")
     # set random seeds
     if args.seed is not None:

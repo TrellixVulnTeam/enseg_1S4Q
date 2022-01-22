@@ -26,6 +26,7 @@ class EnsegV4(BaseNetwork):
         self,
         backbone,
         seg,
+        backbone_B=None,
         aux=None,
         gen=None,
         dis=None,
@@ -52,19 +53,17 @@ class EnsegV4(BaseNetwork):
         )
         if rec_loss is not None:
             self.creterion_rec = builder.build_loss(rec_loss)
-        backbone_B = builder.build_backbone(backbone)
+        if backbone_B is None:
+            backbone_B = builder.build_backbone(backbone)
+        else:
+            backbone_B = builder.build_backbone(backbone_B)
         self.backbones = dict(A=self.backbone, B=backbone_B)
         self.backbone_B = backbone_B
         self.feature = {}
-        self.all_feature = {}
 
     def forward_backbone_train(self, img, key="A"):
-        x, stem = self.backbones[key](img, True)
-        all_feature = [img, stem] + list(x)
-        return x, all_feature
-        # x = self.backbones[key](img)
-        # all_feature = [img] + list(x)
-        # return x, all_feature
+        x = self.backbones[key](img)
+        return x
 
     def forward_seg_train(self, dataA, dataB):
         losses = dict()
@@ -89,25 +88,10 @@ class EnsegV4(BaseNetwork):
             },
         )
 
-    # def forward_gen_train(self, dataA, dataB):
-    #     norm_cfg = dataA["img_metas"][0]["img_norm_cfg"]
-    #     rec_img = self.gen(self.all_feature["B"], norm_cfg)
-    #     real_img = dataB["img"]
-    #     loss_rec = self.creterion_rec(rec_img, real_img, norm_cfg)
-    #     losses = {
-    #         "gen.loss_idt": loss_rec,
-    #     }
-    #     outputs = {
-    #         "gen/realA": dataA["img"].detach(),
-    #         "gen/realB": real_img.detach(),
-    #         "gen/recB": rec_img.detach(),
-    #     }
-    #     return losses, outputs
-
     def forward_gen_train(self, dataA, dataB):
         norm_cfg = dataA["img_metas"][0]["img_norm_cfg"]
-        fake_img = self.gen(self.all_feature["A"], norm_cfg)
-        rec_img = self.gen(self.all_feature["B"], norm_cfg)
+        fake_img = self.gen(self.feature["A"], norm_cfg)
+        rec_img = self.gen(self.feature["B"], norm_cfg)
         real_img = dataB["img"]
         pred_fake = self.dis(fake_img, dataA["gt_semantic_seg"])
         loss_rec = self.creterion_rec(rec_img, real_img, norm_cfg)
@@ -151,13 +135,9 @@ class EnsegV4(BaseNetwork):
         # train for network
         dataA = data_batch[0]
         dataB = data_batch[1]
-        self.feature = {}
-        self.all_feature = {}
-        self.feature["A"], self.all_feature["A"] = self.forward_backbone_train(
-            dataA["img"], "A"
-        )
-        self.feature["B"], self.all_feature["B"] = self.forward_backbone_train(
-            dataB["img"], "B"
+        self.feature = dict(
+            A=self.forward_backbone_train(dataA["img"], "A"),
+            B=self.forward_backbone_train(dataB["img"], "B"),
         )
 
         outputs_seg, outputs_gen, outputs_dis = None, None, None
@@ -195,9 +175,6 @@ class EnsegV4(BaseNetwork):
             total_losses.update(losses_dis)
         self._optim_zero(optimizer, *optimizer.keys())
         total_loss, total_vars = self._parse_losses(total_losses)
-        self.feature = {}
-        self.all_feature = {}
-        torch.cuda.empty_cache()
         outputs = dict(
             loss=total_loss,
             log_vars=total_vars,

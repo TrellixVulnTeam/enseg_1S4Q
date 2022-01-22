@@ -10,23 +10,24 @@ _base_ = [
     "../base/models/upernet_convnext.py",
     "../base/datasets/nightcity_h256w512.py",
     "../base/default_runtime.py",
-    "../base/schedules/schedule_160k.py",
+    "../base/schedules/schedule_80k.py",
 ]
 crop_size = (512, 512)
-
 network = dict(
     backbone=dict(
         type="ConvNeXt",
         in_chans=3,
         depths=[3, 3, 27, 3],
-        dims=[128, 256, 512, 1024],
-        drop_path_rate=0.4,
+        dims=[96, 192, 384, 768],
+        drop_path_rate=0.3,
         layer_scale_init_value=1.0,
         out_indices=[0, 1, 2, 3],
+        init_cfg=dict(
+            type="Pretrained",
+            checkpoint="/home/wzx/weizhixiang/ensegment/pretrain/convnext/mmlab/convnext_small_1k_224.pth",
+        ),
     ),
-    seg=dict(in_channels=[128, 256, 512, 1024], num_classes=19,),
-    aux=dict(in_channels=512, num_classes=19),
-    # test_cfg=dict(mode="slide", crop_size=crop_size, stride=(341, 341)),
+    seg=dict(in_channels=[96, 192, 384, 768], num_classes=19,),
 )
 
 
@@ -42,7 +43,7 @@ lr_config = dict(
 )
 
 # By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(samples_per_gpu=8)
+data = dict(samples_per_gpu=8, workers_per_gpu=8)
 
 # runner = dict(type="IterBasedRunnerAmp")
 

@@ -19,3 +19,5 @@ network = dict(
         loss_decode=dict(type="CrossEntropyLoss", use_sigmoid=False, loss_weight=0.4),
     )
 )
+
+data = dict(samples_per_gpu=4, workers_per_gpu=4)

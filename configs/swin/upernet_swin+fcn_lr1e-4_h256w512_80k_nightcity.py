@@ -2,10 +2,10 @@ _base_ = [
     "../base/models/upernet_swin.py",
     "../base/datasets/nightcity_h256w512.py",
     "../base/default_runtime.py",
-    "../base/schedules/schedule_160k.py",
+    "../base/schedules/schedule_80k.py",
 ]
 network = dict(
-    pretrained="pretrain/swin_base_pathc4_window12_384.pth",
+    pretrained="/home/wzx/weizhixiang/ensegment/pretrain/swin/mmlab/swin_base_patch4_window7_224.pth",
     backbone=dict(
         pretrain_img_size=384,
         embed_dims=128,
@@ -17,7 +17,19 @@ network = dict(
         patch_norm=True,
     ),
     seg=dict(in_channels=[128, 256, 512, 1024], num_classes=19),
-    aux=dict(in_channels=512, num_classes=19),
+    aux=dict(
+        type="FCNHead",
+        in_channels=512,
+        in_index=2,
+        channels=256,
+        num_convs=1,
+        concat_input=False,
+        dropout_ratio=0.1,
+        num_classes=19,
+        norm_cfg={{_base_.norm_cfg}},
+        align_corners=False,
+        loss_decode=dict(type="CrossEntropyLoss", use_sigmoid=False, loss_weight=0.4),
+    ),
 )
 
 lr_config = dict(
@@ -30,4 +42,6 @@ lr_config = dict(
     min_lr=0.0,
     by_epoch=False,
 )
+opt = dict(lr=0.0001)
+optimizer = dict(aux={{_base_.opt}})
 

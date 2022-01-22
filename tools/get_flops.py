@@ -4,7 +4,7 @@ import argparse
 from mmcv import Config
 from mmcv.cnn import get_model_complexity_info
 
-from enseg.models import build_segmentor
+from enseg.models import build_network
 
 
 def parse_args():
@@ -32,11 +32,9 @@ def main():
         raise ValueError('invalid input shape')
 
     cfg = Config.fromfile(args.config)
-    cfg.model.pretrained = None
-    model = build_segmentor(
-        cfg.model,
-        train_cfg=cfg.get('train_cfg'),
-        test_cfg=cfg.get('test_cfg')).cuda()
+    cfg.network.pretrained = None
+    model = build_network(
+        cfg.network).cuda()
     model.eval()
 
     if hasattr(model, 'forward_dummy'):

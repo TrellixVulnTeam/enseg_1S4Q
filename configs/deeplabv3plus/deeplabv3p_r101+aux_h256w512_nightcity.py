@@ -5,6 +5,11 @@ _base_ = [
     "../base/schedules/schedule_80k.py",
 ]
 network = dict(
+    pretrained="open-mmlab://resnet101_v1c",
+    backbone=dict(depth=101),
+    train_flow=[("s", 10)],
+)
+network = dict(
     aux=dict(
         type="FCNHead",
         in_channels=1024,

@@ -2,22 +2,17 @@ _base_ = [
     "../base/models/upernet_swin.py",
     "../base/datasets/nightcity_h256w512.py",
     "../base/default_runtime.py",
-    "../base/schedules/schedule_160k.py",
+    "../base/schedules/schedule_80k.py",
 ]
 network = dict(
-    pretrained="pretrain/swin_backbone.pth",
+    pretrained="/home/wzx/weizhixiang/ensegment/pretrain/swin/mmlab/swin_base_patch4_window7_224_22k.pth",
     backbone=dict(
-        pretrain_img_size=384,
+        pretrain_img_size=224,
         embed_dims=128,
         depths=[2, 2, 18, 2],
         num_heads=[4, 8, 16, 32],
-        window_size=12,
-        use_abs_pos_embed=False,
-        drop_path_rate=0.3,
-        patch_norm=True,
     ),
     seg=dict(in_channels=[128, 256, 512, 1024], num_classes=19),
-    aux=dict(in_channels=512, num_classes=19),
 )
 
 lr_config = dict(

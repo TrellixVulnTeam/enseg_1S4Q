@@ -1,5 +1,5 @@
 # model settings
-norm_cfg = dict(type='SyncBN', requires_grad=True)
+norm_cfg = dict(type="SyncBN", requires_grad=True)
 network = dict(
     type="EnsegV4",
     pretrained="open-mmlab://resnet50_v1c",
@@ -44,9 +44,11 @@ network = dict(
     ),
     gen=dict(
         type="UnetGen",
+        neck_type="ResNetV1c",
+        accept_origin=True,
         act_cfg=dict(type="LeakyReLU"),
         norm_cfg=dict(type="IN"),
-        padding_mode="reflect",
+        padding_mode="zeros",
         init_cfg=dict(type="normal", gain=0.02),
     ),
     dis=dict(

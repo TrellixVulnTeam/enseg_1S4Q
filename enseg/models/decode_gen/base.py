@@ -2,17 +2,11 @@
 from abc import ABCMeta, abstractmethod
 
 import torch
-import torch.nn as nn
-from mmcv.runner import BaseModule, auto_fp16, force_fp32
-
-from enseg.core import build_pixel_sampler
+from enseg.models.decode_seg.decode_head import BaseDecodeHead
 from enseg.models.utils.init_gan import generation_init_weights
-from enseg.ops import resize
-from ..builder import build_loss
-from ..losses import accuracy
 
 
-class BaseGen(BaseModule, metaclass=ABCMeta):
+class BaseGen(BaseDecodeHead):
     """Base class for BaseGen.
 
     Args:
@@ -37,33 +31,19 @@ class BaseGen(BaseModule, metaclass=ABCMeta):
     """
 
     def __init__(
-        self,
-        dropout_ratio=0.1,
-        conv_cfg=None,
-        norm_cfg=None,
-        act_cfg=dict(type="ReLU"),
-        padding_mode="reflect",
-        align_corners=False,
-        init_cfg=None,
+        self, padding_mode="zeros", **kwargs,
     ):
-        super(BaseGen, self).__init__(init_cfg)
-        self.dropout_ratio = dropout_ratio
-        self.conv_cfg = conv_cfg
-        self.norm_cfg = norm_cfg
-        self.act_cfg = act_cfg
+        super().__init__(
+            input_transform="multiple_select", dropout_ratio=0.0,num_classes=1, **kwargs,
+        )
         self.padding_mode = padding_mode
-
-        self.align_corners = align_corners
-
-        if dropout_ratio > 0:
-            self.dropout = nn.Dropout2d(dropout_ratio)
-        else:
-            self.dropout = None
         self.fp16_enabled = False
         self.init_type = (
-            "normal" if init_cfg is None else init_cfg.get("type", "normal")
+            "normal" if self.init_cfg is None else self.init_cfg.get("type", "normal")
         )
-        self.init_gain = 0.02 if init_cfg is None else init_cfg.get("gain", 0.02)
+        self.init_gain = (
+            0.02 if self.init_cfg is None else self.init_cfg.get("gain", 0.02)
+        )
 
     @staticmethod
     def tanh_normalize(img, norm_cfg):
@@ -126,16 +106,16 @@ class BaseGen(BaseModule, metaclass=ABCMeta):
                 )
         return losses, generated
 
-    def init_weights(self):
-        """Initialize weights for the model.
+    # def init_weights(self):
+    #     """Initialize weights for the model.
 
-        Args:
-            pretrained (str, optional): Path for pretrained weights. If given
-                None, pretrained weights will not be loaded. Default: None.
-            strict (bool, optional): Whether to allow different params for the
-                model and checkpoint. Default: True.
-        """
-        generation_init_weights(
-            self, init_type=self.init_type, init_gain=self.init_gain
-        )
+    #     Args:
+    #         pretrained (str, optional): Path for pretrained weights. If given
+    #             None, pretrained weights will not be loaded. Default: None.
+    #         strict (bool, optional): Whether to allow different params for the
+    #             model and checkpoint. Default: True.
+    #     """
+    #     generation_init_weights(
+    #         self, init_type=self.init_type, init_gain=self.init_gain
+    #     )
 
