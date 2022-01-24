@@ -8,6 +8,8 @@ from mmcv.runner import build_optimizer
 from mmcv.runner.fp16_utils import auto_fp16
 from torch.nn.parallel.distributed import _find_tensors
 
+from enseg.ops.wrappers import resize
+
 from ..builder import NETWORKS
 from .base_network import BaseNetwork
 
@@ -92,7 +94,16 @@ class EnsegV4(BaseNetwork):
         norm_cfg = dataA["img_metas"][0]["img_norm_cfg"]
         fake_img = self.gen(self.feature["A"], norm_cfg)
         rec_img = self.gen(self.feature["B"], norm_cfg)
-        real_img = dataB["img"]
+
+        self.low_img = dict(
+            A=resize(
+                dataA["img"], fake_img.shape[-2:], mode="bilinear", align_corners=True
+            ).detach(),
+            B=resize(
+                dataB["img"], fake_img.shape[-2:], mode="bilinear", align_corners=True
+            ).detach(),
+        )
+        real_img = self.low_img["B"]
         pred_fake = self.dis(fake_img, dataA["gt_semantic_seg"])
         loss_rec = self.creterion_rec(rec_img, real_img, norm_cfg)
         loss_adv = self.gan_loss(pred_fake, target_is_real=True, is_disc=False)
@@ -101,9 +112,9 @@ class EnsegV4(BaseNetwork):
             "gen.loss_idt": loss_rec,
         }
         outputs = {
-            "gen/realA": dataA["img"].detach(),
+            "gen/realA": self.low_img["A"],
             "gen/fakeB": fake_img.detach(),
-            "gen/realB": real_img.detach(),
+            "gen/realB": self.low_img["B"],
             "gen/recB": rec_img.detach(),
         }
         return losses, outputs
@@ -118,7 +129,7 @@ class EnsegV4(BaseNetwork):
                 ).detach()
         fake_gt = dataA["gt_semantic_seg"]
         real_gt = dataB["gt_semantic_seg"]
-        real_img = dataB["img"]
+        real_img = generated["gen/realB"]
         pred_fake = self.dis(fake_img, fake_gt)
         pred_real = self.dis(real_img, real_gt)
         losses = dict()
