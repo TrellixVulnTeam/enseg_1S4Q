@@ -1,0 +1,10 @@
+*.cpython
+*.pyc
+enseg/.mim/*
+work_dirs/*
+data/*
+.vscode/*
+graph/*
+pretrain/*
+tests/*
+work_dirs
